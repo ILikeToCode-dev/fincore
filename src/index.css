@@ -1,0 +1,141 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-background: var(--color-bg);
+  --color-surface: var(--color-surf);
+  --color-surface-container: var(--color-surf-cont);
+  --color-surface-high: var(--color-surf-high);
+  
+  --color-primary: var(--color-prim);
+  --color-primary-hover: var(--color-prim-hov);
+  
+  --color-danger: var(--color-dang);
+  --color-danger-dark: var(--color-dang-dark);
+  --color-danger-hover: var(--color-dang-hov);
+
+  --color-warn: var(--color-warn);
+  --color-alert: var(--color-alert);
+  
+  --color-border: var(--color-bord);
+  --color-border-hover: var(--color-bord-hov);
+  --color-border-active: var(--color-bord-act);
+  
+  --color-text-main: var(--color-txt-main);
+  --color-text-muted: var(--color-txt-muted);
+  
+  --font-sans: "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+  
+  /* Strictly sharp components for Terminal vibe */
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+}
+
+:root, :root.theme-blue {
+  --color-bg: #09090b;
+  --color-surf: #18181b;
+  --color-surf-cont: #27272a;
+  --color-surf-high: #3f3f46;
+  
+  --color-prim: #3b82f6; 
+  --color-prim-hov: #2563eb;
+  
+  --color-dang: #0ea5e9; /* Sky blue for danger in blue theme */
+  --color-dang-dark: #075985;
+  --color-dang-hov: #0284c7;
+
+  --color-warn: #6366f1; /* Indigo */
+  --color-alert: #8b5cf6; /* Purple */
+  
+  --color-bord: #27272a;
+  --color-bord-hov: #3f3f46;
+  --color-bord-act: #3b82f6;
+  
+  --color-txt-main: #ffffff;
+  --color-txt-muted: #a1a1aa;
+}
+
+:root.theme-orange {
+  --color-bg: #121212;
+  --color-surf: #181818;
+  --color-surf-cont: #1e1e1e;
+  --color-surf-high: #27272a;
+  
+  --color-prim: #F97316;
+  --color-prim-hov: #EA580C;
+  
+  --color-dang: #EF4444; /* True red */
+  --color-dang-dark: #7F1D1D;
+  --color-dang-hov: #DC2626;
+
+  --color-warn: #eab308; /* Yellow */
+  --color-alert: #f97316; /* Orange */
+  
+  --color-bord: #27272A;
+  --color-bord-hov: #3F3F46;
+  --color-bord-act: #F97316;
+  
+  --color-txt-main: #FFFFFF;
+  --color-txt-muted: #A1A1AA;
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-text-main);
+  font-family: var(--font-sans);
+  min-height: 100vh;
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar for IE, Edge and Firefox */
+* {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+/* Custom Utilities for strictness */
+.font-data {
+  font-family: var(--font-mono);
+}
+.font-ui {
+  font-family: var(--font-sans);
+}
+
+/* Hide spin buttons for input type number */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type=number] {
+  -moz-appearance: textfield; /* Firefox */
+}
+
+/* Terminal Input overrides */
+input[type=range] {
+  -webkit-appearance: none;
+  background: transparent;
+  width: 100%;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  height: 16px;
+  width: 16px;
+  border-radius: 0;
+  background: var(--color-primary);
+  cursor: pointer;
+  margin-top: -6px;
+}
+input[type=range]::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 4px;
+  cursor: pointer;
+  background: var(--color-border);
+}
