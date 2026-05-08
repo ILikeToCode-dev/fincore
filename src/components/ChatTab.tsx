@@ -179,8 +179,7 @@ function InteractiveSphere({ audioVolume }: { audioVolume: number }) {
         ref={canvasRef} 
         width={800} 
         height={800} 
-        className="w-full h-full object-contain cursor-crosshair touch-none transition-transform duration-500"
-        style={{ transform: `scale(${targetScale})` }}
+        className="w-full h-full object-contain cursor-crosshair touch-none"
       />
     </div>
   );
@@ -228,7 +227,7 @@ Chocolate: ₹40/Bar -> ₹100/Bar`;
                   "Authorization": "Bearer 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",
               },
               body: JSON.stringify({
-                  model: "google/gemma-2-27b-it", // Correct model name format for OpenRouter
+                  model: "google/gemma-4-26b-a4b-it:free",
                   messages: [
                       { role: "system", content: systemPrompt },
                       { role: "user", content: text }
@@ -407,6 +406,16 @@ Chocolate: ₹40/Bar -> ₹100/Bar`;
     }
   };
 
+  const [textInput, setTextInput] = useState("");
+
+  const handleTextSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!textInput.trim() || isConnecting) return;
+    const text = textInput.trim();
+    setTextInput("");
+    askAssistant(text);
+  };
+
   return (
     <div className="flex flex-col items-center justify-center relative w-full h-[70vh] min-h-[500px] animate-in fade-in duration-500">
       <div className="flex-1 flex flex-col items-center justify-center p-8 overflow-hidden relative w-full">
@@ -414,23 +423,35 @@ Chocolate: ₹40/Bar -> ₹100/Bar`;
           audioVolume={audioVolume} 
         />
         
-        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center justify-center z-50">
-          <button 
-            onClick={toggleConnection}
-            disabled={isConnecting}
-            className={`w-16 h-16 rounded-full flex items-center justify-center backdrop-blur-xl transition-all duration-300 shadow-xl ${isConnected ? 'bg-danger/20 border border-danger/50 text-danger hover:bg-danger/30' : 'bg-surface/50 border border-border text-primary hover:bg-surface'} ${isConnecting ? 'opacity-50 cursor-not-allowed' : ''}`}
-          >
-            {isConnecting ? (
-              <Loader2 className="w-6 h-6 animate-spin" />
-            ) : isConnected ? (
-              <MicOff className="w-6 h-6" />
-            ) : (
-              <Mic className="w-6 h-6" />
-            )}
-          </button>
+        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center justify-center z-50 w-full max-w-md px-6">
+          <div className="flex justify-center mb-6">
+            <button 
+              onClick={toggleConnection}
+              disabled={isConnecting}
+              className={`w-14 h-14 rounded-full flex items-center justify-center backdrop-blur-xl transition-all duration-300 shadow-xl ${isConnected ? 'bg-danger/20 border border-danger/50 text-danger hover:bg-danger/30' : 'bg-surface/50 border border-border text-primary hover:bg-surface'} ${isConnecting ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              {isConnecting ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : isConnected ? (
+                <MicOff className="w-5 h-5" />
+              ) : (
+                <Mic className="w-5 h-5" />
+              )}
+            </button>
+          </div>
           
+          <form onSubmit={handleTextSubmit} className="w-full flex items-center gap-2">
+            <input 
+               type="text" 
+               value={textInput} 
+               onChange={(e) => setTextInput(e.target.value)}
+               placeholder="Or type your message..." 
+               className="flex-1 bg-black/40 border border-white/10 rounded-full px-4 py-2 font-ui text-sm text-white placeholder-white/40 focus:outline-none focus:border-primary backdrop-blur-md"
+            />
+          </form>
+
           {micError && (
-            <p className="font-data text-xs mt-4 uppercase tracking-widest text-danger max-w-[200px] text-center bg-surface/80 p-2 rounded backdrop-blur-md">
+            <p className="font-data text-[10px] mt-4 uppercase tracking-widest text-danger max-w-[300px] text-center bg-black/80 px-2 py-1 rounded backdrop-blur-md">
               {micError}
             </p>
           )}
