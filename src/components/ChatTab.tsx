@@ -1,19 +1,22 @@
 import { useState, useRef, useEffect } from "react";
-import { Mic, MicOff, Bot, Loader2 } from "lucide-react";
-import { motion } from "motion/react";
-import { GoogleGenAI, Modality, LiveServerMessage } from "@google/genai";
+import { Mic, MicOff, Loader2 } from "lucide-react";
 import { useTheme } from "./ThemeContext";
 
 interface ChatProps {
   contextData: any;
 }
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-
 function InteractiveSphere({ audioVolume }: { audioVolume: number }) {
   const { theme } = useTheme();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const pointerPos = useRef({ x: -1000, y: -1000 });
+  
+  // Calculate a smoothed target scale based on ONLY the microphone speaking volume.
+  // We use max target between 1 and a multiplier of volume. 
+  // It only changes colors and grows if audioVolume > 0.05.
+  const isSpeaking = audioVolume > 0.05;
+  const targetScale = isSpeaking ? Math.min(1.5, 1 + audioVolume * 5.0) : 1.0;
+  // Let the spring physics interpolate the actual size/color.
   
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -30,8 +33,6 @@ function InteractiveSphere({ audioVolume }: { audioVolume: number }) {
     const baseRadius = canvas.width * 0.35;
 
     for (let i = 0; i < numDots; i++) {
-       // Distribute randomly within a circle to make a solid 2d disk/circle shape
-       // Using sqrt for uniform distribution
        const r = baseRadius * Math.sqrt(Math.random());
        const theta = Math.random() * 2 * Math.PI;
        
@@ -65,7 +66,7 @@ function InteractiveSphere({ audioVolume }: { audioVolume: number }) {
       const time = (Date.now() - startTime) / 1000;
       
       // Expand circle slightly with audio volume
-      const pulse = 1 + (audioVolume * 0.15); 
+      const pulse = targetScale; 
       
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       
@@ -109,14 +110,14 @@ function InteractiveSphere({ audioVolume }: { audioVolume: number }) {
          dot.y += dot.vy;
          
          // Make points pulse lightly with audio
-         const currentSize = dot.size * (1 + audioVolume * 1.0);
-         const currentAlpha = Math.min(1, dot.alpha + audioVolume * 0.5);
+         const currentSize = dot.size * pulse;
+         const currentAlpha = Math.min(1, dot.alpha + (pulse - 1) * 0.5);
 
          // Theme colors
          const activeRgb = theme === 'orange' ? [249, 115, 22] : [59, 130, 246];
          const idleRgb = [229, 226, 225];
          
-         const blend = Math.min(1, audioVolume * 4);
+         const blend = Math.min(1, (pulse - 1));
          const r = idleRgb[0] + (activeRgb[0] - idleRgb[0]) * blend;
          const g = idleRgb[1] + (activeRgb[1] - idleRgb[1]) * blend;
          const b = idleRgb[2] + (activeRgb[2] - idleRgb[2]) * blend;
@@ -170,7 +171,7 @@ function InteractiveSphere({ audioVolume }: { audioVolume: number }) {
       canvas.removeEventListener('mouseleave', onLeave);
       canvas.removeEventListener('touchend', onLeave);
     };
-  }, [audioVolume, theme]);
+  }, [audioVolume, theme, targetScale]);
 
   return (
     <div className="w-full h-full flex items-center justify-center max-h-[400px]">
@@ -178,7 +179,8 @@ function InteractiveSphere({ audioVolume }: { audioVolume: number }) {
         ref={canvasRef} 
         width={800} 
         height={800} 
-        className="w-full h-full object-contain cursor-crosshair touch-none"
+        className="w-full h-full object-contain cursor-crosshair touch-none transition-transform duration-500"
+        style={{ transform: `scale(${targetScale})` }}
       />
     </div>
   );
@@ -191,62 +193,22 @@ export function ChatTab({ contextData }: ChatProps) {
   const [micError, setMicError] = useState<string | null>(null);
   
   const endSessionRef = useRef<() => void>();
+  const recognitionRef = useRef<any>(null);
 
   useEffect(() => {
     return () => {
-      if (endSessionRef.current) endSessionRef.current();
+       if (endSessionRef.current) endSessionRef.current();
+       if (recognitionRef.current) {
+          recognitionRef.current.stop();
+       }
     };
   }, []);
 
-  const toggleConnection = async () => {
-    if (isConnected) {
-      if (endSessionRef.current) endSessionRef.current();
-      setIsConnected(false);
-      return;
-    }
-
-    setIsConnecting(true);
-    setMicError(null);
-    try {
-      const audioContext = new AudioContext({ sampleRate: 16000 });
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const source = audioContext.createMediaStreamSource(stream);
-      const processor = audioContext.createScriptProcessor(4096, 1, 1);
-      
-      source.connect(processor);
-      processor.connect(audioContext.destination);
-
-      // 24kHz playback context for Gemini's output
-      const playbackContext = new AudioContext({ sampleRate: 24000 });
-      let nextPlayTime = playbackContext.currentTime;
-
-      const playAudio = (base64String: string) => {
-          const binary = atob(base64String);
-          const buffer = new ArrayBuffer(binary.length);
-          const view = new Uint8Array(buffer);
-          for (let i = 0; i < binary.length; i++) {
-              view[i] = binary.charCodeAt(i);
-          }
-          
-          const int16Array = new Int16Array(buffer);
-          const float32Array = new Float32Array(int16Array.length);
-          for (let i = 0; i < int16Array.length; i++) {
-               float32Array[i] = int16Array[i] / 32768.0;
-          }
-
-          const audioBuffer = playbackContext.createBuffer(1, float32Array.length, 24000);
-          audioBuffer.getChannelData(0).set(float32Array);
-          
-          const source = playbackContext.createBufferSource();
-          source.buffer = audioBuffer;
-          source.connect(playbackContext.destination);
-          
-          const startTime = Math.max(nextPlayTime, playbackContext.currentTime);
-          source.start(startTime);
-          nextPlayTime = startTime + audioBuffer.duration;
-      };
-
-      const systemPrompt = `You are the Fin_Core AI assistant. Keep answers very concise, usually 1 or 2 sentences max. Respond naturally in voice.
+  const askAssistant = async (text: string) => {
+      setIsConnecting(true);
+      try {
+          // OpenRouter logic for gemma
+          const systemPrompt = `You are the Fin_Core AI assistant. Keep answers very concise, usually 1 or 2 sentences max. Respond naturally.
 Current Context:
 Initial Amount: ₹${contextData.initialSavings}
 Time Horizon: ${contextData.timeHorizon} years
@@ -254,75 +216,188 @@ Selected Asset: ${contextData.assetLabel}
 Current Simulation Rate: ${contextData.inflationRate}%
 
 Historical Prices (2014) vs Now:
-Gold: ₹2,800/g -> ₹14,349/g
-Silver: ₹40/g -> ₹75/g
-Petrol: ₹72 -> ₹95
-Chocolate: ₹40 -> ₹100`;
+Gold: ₹2,800/1g -> ₹14,349/1g
+Silver: ₹40/1g -> ₹75/1g
+Petrol: ₹72/Liter -> ₹95/Liter
+Chocolate: ₹40/Bar -> ₹100/Bar`;
 
-      const sessionPromise = ai.live.connect({
-        model: "gemini-3.1-flash-live-preview",
-        config: {
-          responseModalities: [Modality.AUDIO],
-          speechConfig: {
-            voiceConfig: { prebuiltVoiceConfig: { voiceName: "Zephyr" } }
-          },
-          systemInstruction: systemPrompt,
-        },
-        callbacks: {
-          onopen: () => {
-             setIsConnected(true);
-             setIsConnecting(false);
-             processor.onaudioprocess = (e) => {
-                 const inputData = e.inputBuffer.getChannelData(0);
-                 const pcmData = new Int16Array(inputData.length);
-                 let sum = 0;
-                 for(let i=0; i<inputData.length; i++) {
-                     const s = Math.max(-1, Math.min(1, inputData[i]));
-                     pcmData[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
-                     sum += Math.abs(inputData[i]);
-                 }
-                 setAudioVolume(sum / inputData.length);
-                 
-                 const buffer = new ArrayBuffer(pcmData.length * 2);
-                 const view = new Uint8Array(buffer);
-                 const temp = new Int16Array(buffer);
-                 temp.set(pcmData);
-                 let binary = '';
-                 for (let i = 0; i < view.length; i++) {
-                     binary += String.fromCharCode(view[i]);
-                 }
-                 const base64Data = btoa(binary);
-                 
-                 sessionPromise.then(session => {
-                     session.sendRealtimeInput({
-                         audio: { data: base64Data, mimeType: 'audio/pcm;rate=16000' }
-                     });
-                 });
-             };
-          },
-          onmessage: async (message: LiveServerMessage) => {
-             const base64Audio = message.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
-             if (base64Audio) {
-                 playAudio(base64Audio);
-             }
-             if (message.serverContent?.interrupted) {
-                 nextPlayTime = playbackContext.currentTime;
-             }
-          },
-          onclose: () => {
-             setIsConnected(false);
-             processor.disconnect();
-             source.disconnect();
-             if (audioContext.state !== 'closed') audioContext.close();
-             if (playbackContext.state !== 'closed') playbackContext.close();
-             stream.getTracks().forEach(t => t.stop());
+          const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+              method: "POST",
+              headers: {
+                  "Content-Type": "application/json",
+                  "Authorization": "Bearer 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",
+              },
+              body: JSON.stringify({
+                  model: "google/gemma-2-27b-it", // Correct model name format for OpenRouter
+                  messages: [
+                      { role: "system", content: systemPrompt },
+                      { role: "user", content: text }
+                  ]
+              })
+          });
+
+          if (!response.ok) {
+              throw new Error(`OpenRouter API error: ${response.status}`);
           }
-        }
-      });
 
-      endSessionRef.current = () => {
-        sessionPromise.then(s => s.close());
+          const data = await response.json();
+          const reply = data.choices[0].message.content;
+          
+          // Use Web Speech API for TTS
+          const utterance = new SpeechSynthesisUtterance(reply);
+          utterance.rate = 1.0;
+          
+          utterance.onstart = () => {
+             // Fake some audio volume while the AI is speaking so it pulses
+             const fakePulse = setInterval(() => {
+                 setAudioVolume(0.1 + Math.random() * 0.3);
+             }, 100);
+             utterance.onend = () => {
+                 clearInterval(fakePulse);
+                 setAudioVolume(0);
+                 if (isConnected) {
+                     // Restart recognition if we are still connected
+                    try {
+                       recognitionRef.current?.start();
+                    } catch(e) { console.error(e) }
+                 }
+             };
+          };
+          window.speechSynthesis.speak(utterance);
+
+      } catch(err: any) {
+          console.error(err);
+          setMicError(err.message || "Failed to get AI response.");
+      } finally {
+          setIsConnecting(false);
+      }
+  };
+
+  const toggleConnection = async () => {
+    if (isConnected) {
+      if (endSessionRef.current) endSessionRef.current();
+      if (recognitionRef.current) {
+          recognitionRef.current.stop();
+      }
+      window.speechSynthesis.cancel(); // Stop talking
+      setIsConnected(false);
+      setAudioVolume(0);
+      return;
+    }
+
+    setIsConnecting(true);
+    setMicError(null);
+    try {
+      const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+          throw new Error("Speech Recognition API is not supported in this browser.");
+      }
+
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-IN';
+      recognitionRef.current = recognition;
+      let finalTranscript = '';
+
+      recognition.onstart = () => {
+          setIsConnected(true);
+          setIsConnecting(false);
       };
+
+      recognition.onaudiostart = () => {
+         setAudioVolume(0.1); 
+      };
+      
+      recognition.onsoundstart = () => {
+         setAudioVolume(0.2);
+      };
+      
+      recognition.onspeechstart = () => {
+         setAudioVolume(0.3);
+      };
+      
+      recognition.onspeechend = () => {
+          setAudioVolume(0.0);
+      };
+
+      recognition.onresult = (event: any) => {
+          let interimTranscript = '';
+          for (let i = event.resultIndex; i < event.results.length; ++i) {
+              if (event.results[i].isFinal) {
+                  finalTranscript += event.results[i][0].transcript;
+                  
+                  // When a sentence is complete, send it
+                  const text = event.results[i][0].transcript.trim();
+                  if (text) {
+                      setAudioVolume(0);
+                      recognition.stop(); // Stop listening while processing & talking
+                      askAssistant(text);
+                  }
+              } else {
+                  interimTranscript += event.results[i][0].transcript;
+                  // Pulse slightly when user is talking
+                  setAudioVolume(0.15 + Math.random() * 0.1);
+              }
+          }
+      };
+
+      recognition.onerror = (event: any) => {
+          if (event.error === 'no-speech') {
+             // Just ignore nothing said
+             setAudioVolume(0);
+          } else if (event.error === 'aborted') {
+             setAudioVolume(0);
+          } else {
+              setMicError("Mic error: " + event.error);
+              setIsConnected(false);
+              setIsConnecting(false);
+          }
+      };
+
+      recognition.onend = () => {
+         setAudioVolume(0);
+      };
+
+      // Set up volume tracking via Web Audio API 
+      // (SpeechRecognition doesn't give us volume levels natively, so we side-channel it for visuals)
+      const audioContext = new AudioContext({ sampleRate: 16000 });
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const source = audioContext.createMediaStreamSource(stream);
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 256;
+      source.connect(analyser);
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+      const monitorVolume = () => {
+          if (!isConnected) return;
+          analyser.getByteFrequencyData(dataArray);
+          let sum = 0;
+          for(let i = 0; i < dataArray.length; i++) {
+              sum += dataArray[i];
+          }
+          const avg = sum / dataArray.length;
+          // Only update volume state if not speaking (to user) or recognized speech
+          // Note: using SpeechSynthesis 'speaking' flag isn't always perfectly sync'd, 
+          // we use it as a general heuristic here.
+          if (!window.speechSynthesis.speaking) {
+              setAudioVolume(avg / 255.0); 
+          }
+          requestAnimationFrame(monitorVolume);
+      };
+
+      recognition.start();
+      
+      endSessionRef.current = () => {
+          if (audioContext.state !== 'closed') audioContext.close();
+          stream.getTracks().forEach(t => t.stop());
+          window.speechSynthesis.cancel();
+      };
+      
+      // Start the separate volume monitor loop
+      setTimeout(() => {
+          if (isConnected) monitorVolume();
+      }, 500);
 
     } catch (e: any) {
       console.error(e);
