@@ -76,21 +76,21 @@ export function PurchasingMeter({ initialAmount, futureValue, years }: Purchasin
       </div>
 
       <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
-        <div className="bg-surface/50 p-4 flex flex-col items-center text-center border border-border relative overflow-hidden group rounded-xl">
+        <div className="bg-white/10 backdrop-blur-md p-4 flex flex-col items-center text-center border border-white/20 shadow-[0_4px_16px_rgba(0,0,0,0.3)] mix-blend-luminosity relative overflow-hidden group rounded-xl">
           <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
           <span className="font-data text-[10px] text-text-muted mb-1 uppercase tracking-widest">Today's Value</span>
           <span className="font-data text-lg text-text-main relative z-10">
             <AnimatedNumber value={initialAmount} format={(v) => `₹${Math.round(v).toLocaleString("en-IN")}`} />
           </span>
         </div>
-        <div className="bg-surface/50 p-4 flex flex-col items-center text-center border border-border relative overflow-hidden group rounded-xl">
+        <div className="bg-white/10 backdrop-blur-md p-4 flex flex-col items-center text-center border border-white/20 shadow-[0_4px_16px_rgba(0,0,0,0.3)] mix-blend-luminosity relative overflow-hidden group rounded-xl">
           <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
           <span className="font-data text-[10px] text-text-muted mb-1 uppercase tracking-widest">Future Value (Nominal)</span>
           <span className="font-data text-lg text-text-main relative z-10">
             <AnimatedNumber value={initialAmount} format={(v) => `₹${Math.round(v).toLocaleString("en-IN")}`} />
           </span>
         </div>
-        <div className="md:col-span-2 bg-danger/5 border border-danger/20 p-4 flex flex-col items-center text-center relative overflow-hidden group rounded-xl">
+        <div className="md:col-span-2 bg-white/10 backdrop-blur-md border border-danger/40 shadow-[0_4px_16px_rgba(239,68,68,0.2)] p-4 flex flex-col items-center text-center relative overflow-hidden group rounded-xl">
           <div className="absolute inset-0 bg-danger/5 opacity-0 group-hover:opacity-100 transition-opacity" />
           <span className="font-data text-[10px] text-danger mb-1 uppercase tracking-widest font-bold">Future Value (Real)</span>
           <span className="font-data text-2xl font-bold text-danger relative z-10">

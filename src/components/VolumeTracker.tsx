@@ -26,7 +26,7 @@ export function VolumeTracker({ itemName, unit, price2014, price2024, futureReal
   const Icon = unit === "Liters" ? Droplet : unit === "Sq Ft" ? Home : unit === "Grams" ? Coins : Box;
 
   return (
-    <div className="bg-white/5 backdrop-blur-2xl border border-white/10 p-6 flex flex-col font-ui relative overflow-hidden shadow-2xl rounded-2xl">
+    <div className="flex flex-col font-ui relative overflow-hidden">
       <h2 className="text-xl font-bold text-white leading-tight flex items-center gap-2 mb-1">
         The Shrinking {unit}
       </h2>

@@ -33,6 +33,7 @@ export function LandingPage({ onStart }: LandingPageProps) {
           loop 
           muted 
           playsInline 
+          onEnded={(e) => { e.currentTarget.currentTime = 0; e.currentTarget.play(); }}
           className="absolute bottom-0 left-0 w-full h-full object-cover opacity-60 mix-blend-screen"
           style={{ 
             objectPosition: 'center bottom', 

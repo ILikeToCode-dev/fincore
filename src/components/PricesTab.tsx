@@ -1,7 +1,8 @@
 import { ASSET_TYPES } from "../lib/constants";
 import { TrendingUp, TrendingDown, RefreshCw } from "lucide-react";
 import { motion } from "motion/react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from "recharts";
 
 export function PricesTab() {
   const [livePrices, setLivePrices] = useState<any>({ gold: null, silver: null, petrol: null, chocolate: 50 });
@@ -13,8 +14,8 @@ export function PricesTab() {
       const res = await fetch("/api/prices");
       const data = await res.json();
       
-      const goldPrice = data.metals?.gram_in_inr ? data.metals.gram_in_inr * 10 : null; // Custom 10g logic
-      const silverPrice = data.metals?.silver_gram_in_inr ? data.metals.silver_gram_in_inr * 1000 : null; // 1kg
+      const goldPrice = data.metals?.gram_in_inr ? data.metals.gram_in_inr : null;
+      const silverPrice = data.metals?.silver_gram_in_inr ? data.metals.silver_gram_in_inr : null;
       const petrolPrice = data.petrol?.fuel_price?.[0]?.petrol?.retailPrice ? parseFloat(data.petrol.fuel_price[0].petrol.retailPrice) : null;
       
       setLivePrices({
@@ -36,13 +37,45 @@ export function PricesTab() {
 
   const assets = Object.entries(ASSET_TYPES).filter(([k]) => k !== "custom" && k !== "cash");
 
+  const chartData = useMemo(() => {
+    // Helper to calculate normalized index (2014 = 100)
+    const norm = (val: number, base: number) => (val / base) * 100;
+    
+    // Base prices (2014)
+    const gBase = ASSET_TYPES.gold.price2014;
+    const sBase = ASSET_TYPES.silver.price2014;
+    const pBase = ASSET_TYPES.petrol.price2014;
+
+    const baseData = [
+      { year: 2014, Gold: 100, Silver: 100, Petrol: 100 },
+      { year: 2016, Gold: norm(2900, gBase), Silver: norm(41, sBase), Petrol: norm(65, pBase) },
+      { year: 2018, Gold: norm(3100, gBase), Silver: norm(38, sBase), Petrol: norm(75, pBase) },
+      { year: 2020, Gold: norm(5000, gBase), Silver: norm(65, sBase), Petrol: norm(80, pBase) },
+      { year: 2022, Gold: norm(5200, gBase), Silver: norm(60, sBase), Petrol: norm(96, pBase) },
+      { year: 2024, Gold: norm(7000, gBase), Silver: norm(85, sBase), Petrol: norm(95, pBase) },
+    ];
+
+    // Append current data (2026) based on live API or defaults
+    const currentGold = livePrices.gold || ASSET_TYPES.gold.priceNow;
+    const currentSilver = livePrices.silver || ASSET_TYPES.silver.priceNow;
+    const currentPetrol = livePrices.petrol || ASSET_TYPES.petrol.priceNow;
+
+    baseData.push({
+      year: 2026,
+      Gold: norm(currentGold, gBase),
+      Silver: norm(currentSilver, sBase),
+      Petrol: norm(currentPetrol, pBase),
+    });
+
+    return baseData;
+  }, [livePrices]);
+
   return (
-    <div className="flex flex-col gap-6 animate-in slide-in-from-bottom-4 duration-500 fade-in">
-      <div className="bg-white/5 backdrop-blur-2xl border border-white/10 p-6 md:p-10 flex flex-col gap-6 relative shadow-2xl rounded-2xl w-full">
-        <div className="flex justify-between items-start md:items-center">
-          <div>
-            <h2 className="text-2xl font-bold text-white shadow-sm flex items-center gap-2">
-              <TrendingUp className="text-primary w-6 h-6" />
+    <div className="flex flex-col gap-6 animate-in slide-in-from-bottom-4 duration-500 fade-in w-full">
+      <div className="flex justify-between items-start md:items-center">
+        <div>
+          <h2 className="text-2xl font-bold text-white shadow-sm flex items-center gap-2">
+            <TrendingUp className="text-primary w-6 h-6" />
               Real Historical vs Current Prices
             </h2>
             <p className="text-text-muted mt-2 max-w-3xl leading-relaxed">
@@ -116,7 +149,49 @@ export function PricesTab() {
             </tbody>
           </table>
         </div>
-      </div>
+        
+        <div className="mt-12 relative overflow-hidden">
+           <h3 className="text-lg font-bold text-white mb-6 font-ui">Relative Price Evolution (2014 = 100)</h3>
+           <div className="w-full h-[400px]">
+             <ResponsiveContainer width="100%" height="100%">
+               <LineChart
+                 data={chartData}
+                 margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+               >
+                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" vertical={false} />
+                 <XAxis 
+                   dataKey="year" 
+                   stroke="rgba(255,255,255,0.5)" 
+                   tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 12, fontFamily: 'monospace' }}
+                   tickLine={false}
+                   axisLine={false}
+                 />
+                 <YAxis 
+                   stroke="rgba(255,255,255,0.5)" 
+                   tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 12, fontFamily: 'monospace' }}
+                   tickLine={false}
+                   axisLine={false}
+                   tickFormatter={(val) => `${val}`}
+                 />
+                 <Tooltip 
+                   contentStyle={{ backgroundColor: 'rgba(20,20,20,0.9)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff', fontFamily: 'monospace' }}
+                   itemStyle={{ color: '#fff' }}
+                   formatter={(value: number, name: string) => {
+                     // Since lines are normalized to 100, let's reverse calculate the real price for the tooltip
+                     const assetKey = name.toLowerCase() as "gold" | "silver" | "petrol";
+                     const basePrice = ASSET_TYPES[assetKey]?.price2014;
+                     const realValue = (value / 100) * basePrice;
+                     return [`₹${realValue.toLocaleString(undefined, {maximumFractionDigits: 2})}`, name];
+                   }}
+                 />
+                 <Legend wrapperStyle={{ fontFamily: 'monospace', fontSize: 12, paddingTop: 20 }} />
+                 <Line type="monotone" dataKey="Gold" stroke="#f59e0b" strokeWidth={3} dot={{ r: 4, fill: '#1a1a1a', strokeWidth: 2 }} activeDot={{ r: 8 }} />
+                 <Line type="monotone" dataKey="Silver" stroke="#cbd5e1" strokeWidth={3} dot={{ r: 4, fill: '#1a1a1a', strokeWidth: 2 }} activeDot={{ r: 8 }} />
+                 <Line type="monotone" dataKey="Petrol" stroke="#ef4444" strokeWidth={3} dot={{ r: 4, fill: '#1a1a1a', strokeWidth: 2 }} activeDot={{ r: 8 }} />
+               </LineChart>
+             </ResponsiveContainer>
+           </div>
+        </div>
     </div>
   );
 }

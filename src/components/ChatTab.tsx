@@ -1,215 +1,365 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, Bot, User, Loader2, Calculator } from "lucide-react";
+import { Mic, MicOff, Bot, Loader2 } from "lucide-react";
 import { motion } from "motion/react";
+import { GoogleGenAI, Modality, LiveServerMessage } from "@google/genai";
+import { useTheme } from "./ThemeContext";
 
 interface ChatProps {
   contextData: any;
 }
 
-interface Message {
-  role: "user" | "assistant" | "system" | "tool";
-  content: string;
-  id: string;
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
+function InteractiveSphere({ audioVolume }: { audioVolume: number }) {
+  const { theme } = useTheme();
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const pointerPos = useRef({ x: -1000, y: -1000 });
+  
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    
+    // Generate particles
+    const numDots = 800; // Dense 2d circle
+    const dots: { x: number, y: number, baseX: number, baseY: number, vx: number, vy: number, size: number, alpha: number, phase: number, speed: number }[] = [];
+    
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
+    const baseRadius = canvas.width * 0.35;
+
+    for (let i = 0; i < numDots; i++) {
+       // Distribute randomly within a circle to make a solid 2d disk/circle shape
+       // Using sqrt for uniform distribution
+       const r = baseRadius * Math.sqrt(Math.random());
+       const theta = Math.random() * 2 * Math.PI;
+       
+       const x = cx + r * Math.cos(theta);
+       const y = cy + r * Math.sin(theta);
+
+       dots.push({ 
+         x: x,
+         y: y,
+         baseX: x,
+         baseY: y,
+         vx: 0,
+         vy: 0,
+         size: Math.random() * 1.5 + 0.8,
+         alpha: Math.random() * 0.5 + 0.3,
+         phase: Math.random() * Math.PI * 2,
+         speed: Math.random() * 1.5 + 0.5
+       });
+    }
+
+    let animationId: number;
+    const startTime = Date.now();
+    
+    // Physics constants
+    const friction = 0.82; 
+    const springFactor = 0.08; 
+    const repulsionRadius = 120; // Radius of mouse influence
+    const repulsionForce = 8.0;
+
+    const draw = () => {
+      const time = (Date.now() - startTime) / 1000;
+      
+      // Expand circle slightly with audio volume
+      const pulse = 1 + (audioVolume * 0.15); 
+      
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      dots.forEach(dot => {
+         // Target position (scaled by pulse)
+         const dxCenter = dot.baseX - cx;
+         const dyCenter = dot.baseY - cy;
+         
+         // Organic alive movement (drift)
+         const driftX = Math.sin(time * dot.speed + dot.phase) * 6;
+         const driftY = Math.cos(time * dot.speed * 0.8 + dot.phase) * 6;
+         
+         const targetX = cx + dxCenter * pulse + driftX;
+         const targetY = cy + dyCenter * pulse + driftY;
+         
+         // Interaction: Vector from pointer to point
+         const dxMouse = dot.x - pointerPos.current.x;
+         const dyMouse = dot.y - pointerPos.current.y;
+         const distMouseSq = dxMouse * dxMouse + dyMouse * dyMouse;
+         const distMouse = Math.sqrt(distMouseSq);
+
+         // Apply repulsion force if inside radius
+         if (distMouse < repulsionRadius && distMouse > 0) {
+            const force = (repulsionRadius - distMouse) / repulsionRadius;
+            dot.vx += (dxMouse / distMouse) * force * repulsionForce;
+            dot.vy += (dyMouse / distMouse) * force * repulsionForce;
+         }
+
+         // Apply spring force pulling back to target base position
+         const dxTarget = targetX - dot.x;
+         const dyTarget = targetY - dot.y;
+         dot.vx += dxTarget * springFactor;
+         dot.vy += dyTarget * springFactor;
+
+         // Apply friction to slow down over time
+         dot.vx *= friction;
+         dot.vy *= friction;
+
+         // Update absolute position
+         dot.x += dot.vx;
+         dot.y += dot.vy;
+         
+         // Make points pulse lightly with audio
+         const currentSize = dot.size * (1 + audioVolume * 1.0);
+         const currentAlpha = Math.min(1, dot.alpha + audioVolume * 0.5);
+
+         // Theme colors
+         const activeRgb = theme === 'orange' ? [249, 115, 22] : [59, 130, 246];
+         const idleRgb = [229, 226, 225];
+         
+         const blend = Math.min(1, audioVolume * 4);
+         const r = idleRgb[0] + (activeRgb[0] - idleRgb[0]) * blend;
+         const g = idleRgb[1] + (activeRgb[1] - idleRgb[1]) * blend;
+         const b = idleRgb[2] + (activeRgb[2] - idleRgb[2]) * blend;
+
+         ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${currentAlpha})`;
+         ctx.beginPath();
+         ctx.arc(dot.x, dot.y, currentSize, 0, Math.PI * 2);
+         ctx.fill();
+      });
+      
+      animationId = requestAnimationFrame(draw);
+    };
+    draw();
+    
+    // Correctly scale mouse coordinates from screen size to actual canvas internal size
+    const scalePointer = (clientX: number, clientY: number) => {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      
+      pointerPos.current = {
+        x: (clientX - rect.left) * scaleX,
+        y: (clientY - rect.top) * scaleY
+      };
+    };
+
+    const onPointerMove = (e: MouseEvent | TouchEvent) => {
+      if ('touches' in e) {
+        if (e.touches.length > 0) {
+          scalePointer(e.touches[0].clientX, e.touches[0].clientY);
+        }
+      } else {
+        scalePointer((e as MouseEvent).clientX, (e as MouseEvent).clientY);
+      }
+    };
+
+    const onLeave = () => {
+      // Move pointer far away so it stops repelling
+      pointerPos.current = { x: -1000, y: -1000 };
+    };
+
+    canvas.addEventListener('mousemove', onPointerMove);
+    canvas.addEventListener('touchmove', onPointerMove, { passive: true });
+    canvas.addEventListener('mouseleave', onLeave);
+    canvas.addEventListener('touchend', onLeave);
+    
+    return () => {
+      cancelAnimationFrame(animationId);
+      canvas.removeEventListener('mousemove', onPointerMove);
+      canvas.removeEventListener('touchmove', onPointerMove);
+      canvas.removeEventListener('mouseleave', onLeave);
+      canvas.removeEventListener('touchend', onLeave);
+    };
+  }, [audioVolume, theme]);
+
+  return (
+    <div className="w-full h-full flex items-center justify-center max-h-[400px]">
+      <canvas 
+        ref={canvasRef} 
+        width={800} 
+        height={800} 
+        className="w-full h-full object-contain cursor-crosshair touch-none"
+      />
+    </div>
+  );
 }
 
-const OPENROUTER_API_KEY = "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";
-const MODEL = "google/gemma-4-26b-a4b-it:free"; 
-
 export function ChatTab({ contextData }: ChatProps) {
-  const [messages, setMessages] = useState<Message[]>([
-    { id: "msg-0", role: "assistant", content: "System Online. I am the Fin_Core AI assistant. I have access to your current simulation parameters. How can I help you analyze your purchasing power today?" }
-  ]);
-  const [input, setInput] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const endOfMessagesRef = useRef<HTMLDivElement>(null);
+  const [isConnected, setIsConnected] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [audioVolume, setAudioVolume] = useState(0);
+  const [micError, setMicError] = useState<string | null>(null);
+  
+  const endSessionRef = useRef<() => void>();
 
   useEffect(() => {
-    endOfMessagesRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isLoading]);
+    return () => {
+      if (endSessionRef.current) endSessionRef.current();
+    };
+  }, []);
 
-  const handleSend = async () => {
-    if (!input.trim()) return;
+  const toggleConnection = async () => {
+    if (isConnected) {
+      if (endSessionRef.current) endSessionRef.current();
+      setIsConnected(false);
+      return;
+    }
 
-    const userMsg: Message = { id: `msg-${Date.now()}`, role: "user", content: input };
-    const newMessages = [...messages, userMsg];
-    setMessages(newMessages);
-    setInput("");
-    setIsLoading(true);
-
+    setIsConnecting(true);
+    setMicError(null);
     try {
-      const systemPrompt = `You are the Fin_Core AI assistant. Keep answers concise.
-Current Simulation Context:
+      const audioContext = new AudioContext({ sampleRate: 16000 });
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const source = audioContext.createMediaStreamSource(stream);
+      const processor = audioContext.createScriptProcessor(4096, 1, 1);
+      
+      source.connect(processor);
+      processor.connect(audioContext.destination);
+
+      // 24kHz playback context for Gemini's output
+      const playbackContext = new AudioContext({ sampleRate: 24000 });
+      let nextPlayTime = playbackContext.currentTime;
+
+      const playAudio = (base64String: string) => {
+          const binary = atob(base64String);
+          const buffer = new ArrayBuffer(binary.length);
+          const view = new Uint8Array(buffer);
+          for (let i = 0; i < binary.length; i++) {
+              view[i] = binary.charCodeAt(i);
+          }
+          
+          const int16Array = new Int16Array(buffer);
+          const float32Array = new Float32Array(int16Array.length);
+          for (let i = 0; i < int16Array.length; i++) {
+               float32Array[i] = int16Array[i] / 32768.0;
+          }
+
+          const audioBuffer = playbackContext.createBuffer(1, float32Array.length, 24000);
+          audioBuffer.getChannelData(0).set(float32Array);
+          
+          const source = playbackContext.createBufferSource();
+          source.buffer = audioBuffer;
+          source.connect(playbackContext.destination);
+          
+          const startTime = Math.max(nextPlayTime, playbackContext.currentTime);
+          source.start(startTime);
+          nextPlayTime = startTime + audioBuffer.duration;
+      };
+
+      const systemPrompt = `You are the Fin_Core AI assistant. Keep answers very concise, usually 1 or 2 sentences max. Respond naturally in voice.
+Current Context:
 Initial Amount: ₹${contextData.initialSavings}
 Time Horizon: ${contextData.timeHorizon} years
 Selected Asset: ${contextData.assetLabel}
 Current Simulation Rate: ${contextData.inflationRate}%
 
-Historical Prices (2014 vs Now):
-Gold: 28,000 -> 62,000
-Silver: 40,000 -> 75,000
-Petrol: 72 -> 95
-Chocolate: 40 -> 100
+Historical Prices (2014) vs Now:
+Gold: ₹2,800/g -> ₹14,349/g
+Silver: ₹40/g -> ₹75/g
+Petrol: ₹72 -> ₹95
+Chocolate: ₹40 -> ₹100`;
 
-If asked to calculate purchasing power, use the calculatePurchasingPower tool instead of doing math yourself!!! DO NOT try to answer math questions without calling the tool.`;
-
-      const apiMessages = [
-        { role: "system", content: systemPrompt },
-        ...newMessages.map(m => ({ role: m.role, content: m.content }))
-      ];
-
-      const makeRequest = async (msgs: any[]) => {
-        return fetch("https://openrouter.ai/api/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
-            "Content-Type": "application/json",
-            "HTTP-Referer": window.location.origin,
-            "X-Title": "Fin_Core"
+      const sessionPromise = ai.live.connect({
+        model: "gemini-3.1-flash-live-preview",
+        config: {
+          responseModalities: [Modality.AUDIO],
+          speechConfig: {
+            voiceConfig: { prebuiltVoiceConfig: { voiceName: "Zephyr" } }
           },
-          body: JSON.stringify({
-            model: MODEL,
-            messages: msgs,
-            tools: [{
-              type: "function",
-              function: {
-                name: "calculatePurchasingPower",
-                description: "Calculates the future purchasing power of money given inflation and time.",
-                parameters: {
-                  type: "object",
-                  properties: {
-                    initialAmount: { type: "number" },
-                    inflationRatePercent: { type: "number" },
-                    years: { type: "number" }
-                  },
-                  required: ["initialAmount", "inflationRatePercent", "years"]
-                }
-              }
-            }]
-          })
-        });
+          systemInstruction: systemPrompt,
+        },
+        callbacks: {
+          onopen: () => {
+             setIsConnected(true);
+             setIsConnecting(false);
+             processor.onaudioprocess = (e) => {
+                 const inputData = e.inputBuffer.getChannelData(0);
+                 const pcmData = new Int16Array(inputData.length);
+                 let sum = 0;
+                 for(let i=0; i<inputData.length; i++) {
+                     const s = Math.max(-1, Math.min(1, inputData[i]));
+                     pcmData[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+                     sum += Math.abs(inputData[i]);
+                 }
+                 setAudioVolume(sum / inputData.length);
+                 
+                 const buffer = new ArrayBuffer(pcmData.length * 2);
+                 const view = new Uint8Array(buffer);
+                 const temp = new Int16Array(buffer);
+                 temp.set(pcmData);
+                 let binary = '';
+                 for (let i = 0; i < view.length; i++) {
+                     binary += String.fromCharCode(view[i]);
+                 }
+                 const base64Data = btoa(binary);
+                 
+                 sessionPromise.then(session => {
+                     session.sendRealtimeInput({
+                         audio: { data: base64Data, mimeType: 'audio/pcm;rate=16000' }
+                     });
+                 });
+             };
+          },
+          onmessage: async (message: LiveServerMessage) => {
+             const base64Audio = message.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
+             if (base64Audio) {
+                 playAudio(base64Audio);
+             }
+             if (message.serverContent?.interrupted) {
+                 nextPlayTime = playbackContext.currentTime;
+             }
+          },
+          onclose: () => {
+             setIsConnected(false);
+             processor.disconnect();
+             source.disconnect();
+             if (audioContext.state !== 'closed') audioContext.close();
+             if (playbackContext.state !== 'closed') playbackContext.close();
+             stream.getTracks().forEach(t => t.stop());
+          }
+        }
+      });
+
+      endSessionRef.current = () => {
+        sessionPromise.then(s => s.close());
       };
 
-      let res = await makeRequest(apiMessages);
-      
-      if (!res.ok) {
-        let errStr = await res.text();
-        throw new Error(`API returned ${res.status}: ${errStr}`);
-      }
-
-      let data = await res.json();
-      let responseMessage = data.choices[0].message;
-
-      // Handle tool call
-      if (responseMessage.tool_calls) {
-        setMessages(prev => [...prev, { id: `msg-${Date.now()}-temp`, role: "assistant", content: `(Calling Calculator...)` }]);
-        
-        apiMessages.push(responseMessage); // Add assistant tool call message
-        
-        const toolCall = responseMessage.tool_calls[0];
-        if (toolCall.function.name === "calculatePurchasingPower") {
-          const args = JSON.parse(toolCall.function.arguments);
-          const futureValue = args.initialAmount / Math.pow((1 + args.inflationRatePercent / 100), args.years);
-          const toolResult = `The calculatePurchasingPower tool output: Future Value is ₹${Math.round(futureValue).toLocaleString('en-IN')}`;
-          
-          apiMessages.push({
-            role: "tool",
-            content: toolResult,
-            tool_call_id: toolCall.id,
-            name: toolCall.function.name
-          });
-
-          // Second pass
-          res = await makeRequest(apiMessages);
-          data = await res.json();
-          responseMessage = data.choices[0].message;
-          
-          // replace the temp "(Calling Calculator...)" message
-          setMessages(prev => {
-            const filtered = prev.filter(p => !p.id.endsWith("-temp"));
-            return [...filtered, { id: `msg-${Date.now()}`, role: "assistant", content: responseMessage.content }];
-          });
-        }
-      } else {
-        setMessages(prev => [...prev, { id: `msg-${Date.now()}`, role: "assistant", content: responseMessage.content }]);
-      }
-
-    } catch (error: any) {
-      console.error(error);
-      setMessages(prev => [...prev, { id: `msg-${Date.now()}`, role: "assistant", content: `[ERROR_ENCOUNTERED]: ${error.message} - Ensure the model name is correct and API key is valid.` }]);
-    } finally {
-      setIsLoading(false);
+    } catch (e: any) {
+      console.error(e);
+      setMicError(e.message || "Failed to connect to microphone");
+      setIsConnecting(false);
+      setIsConnected(false);
     }
   };
 
   return (
-    <div className="flex flex-col h-[70vh] max-h-[800px] border border-white/10 rounded-2xl overflow-hidden bg-surface/50 shadow-2xl backdrop-blur-3xl animate-in slide-in-from-bottom-4 duration-500 fade-in">
-      <div className="bg-surface/80 border-b border-white/10 p-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Bot className="w-5 h-5 text-primary" />
-          <div>
-            <h3 className="font-ui font-semibold text-white tracking-tight">Fin_Core Assistant</h3>
-            <p className="font-data text-[10px] text-primary uppercase tracking-widest mt-0.5" title={MODEL}>
-              {MODEL.length > 25 ? MODEL.substring(0,25) + '...' : MODEL}
-            </p>
-          </div>
-        </div>
-        <div className="flex gap-2">
-           <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-black/30 border border-white/5 shadow-inner">
-             <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_#22c55e] animate-pulse" />
-             <span className="font-data text-[10px] uppercase text-text-muted tracking-widest">Sys_Link</span>
-           </div>
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
-        {messages.map((msg) => (
-          <motion.div 
-            initial={{ opacity: 0, y: 5 }}
-            animate={{ opacity: 1, y: 0 }}
-            key={msg.id} 
-            className={`flex gap-3 max-w-[85%] ${msg.role === 'user' ? 'ml-auto flex-row-reverse' : 'mr-auto'}`}
-          >
-            <div className={`w-8 h-8 rounded shrink-0 flex items-center justify-center ${msg.role === 'user' ? 'bg-primary/20 text-primary' : 'bg-surface-high border border-border text-white'}`}>
-              {msg.role === 'user' ? <User className="w-4 h-4" /> : msg.content.includes('Calling Calculator') ? <Calculator className="w-4 h-4 text-green-500" /> : <Bot className="w-4 h-4" />}
-            </div>
-            <div className={`p-4 rounded-xl font-ui text-sm leading-relaxed ${msg.role === 'user' ? 'bg-primary text-white rounded-tr-none' : 'bg-surface-high border border-border text-text-main rounded-tl-none whitespace-pre-wrap'}`}>
-              {msg.content}
-            </div>
-          </motion.div>
-        ))}
-        {isLoading && (
-          <div className="flex gap-3 mr-auto max-w-[85%]">
-            <div className="w-8 h-8 rounded shrink-0 flex items-center justify-center bg-surface-high border border-border text-white">
-              <Bot className="w-4 h-4" />
-            </div>
-            <div className="p-4 rounded-xl rounded-tl-none bg-surface-high border border-border flex items-center justify-center">
-              <Loader2 className="w-4 h-4 text-primary animate-spin" />
-            </div>
-          </div>
-        )}
-        <div ref={endOfMessagesRef} />
-      </div>
-
-      <div className="p-4 border-t border-white/10 bg-surface/50">
-        <form 
-          className="relative flex items-center"
-          onSubmit={(e) => { e.preventDefault(); handleSend(); }}
-        >
-          <input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            disabled={isLoading}
-            placeholder="Ask about your simulation..."
-            className="w-full bg-surface-high border border-border text-white px-4 py-3 pr-12 rounded-xl focus:outline-none focus:border-primary transition-colors font-ui text-sm placeholder:text-text-muted"
-          />
+    <div className="flex flex-col items-center justify-center relative w-full h-[70vh] min-h-[500px] animate-in fade-in duration-500">
+      <div className="flex-1 flex flex-col items-center justify-center p-8 overflow-hidden relative w-full">
+        <InteractiveSphere 
+          audioVolume={audioVolume} 
+        />
+        
+        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center justify-center z-50">
           <button 
-            type="submit"
-            disabled={isLoading || !input.trim()}
-            className="absolute right-2 p-2 text-text-muted hover:text-primary transition-colors disabled:opacity-50 disabled:hover:text-text-muted"
+            onClick={toggleConnection}
+            disabled={isConnecting}
+            className={`w-16 h-16 rounded-full flex items-center justify-center backdrop-blur-xl transition-all duration-300 shadow-xl ${isConnected ? 'bg-danger/20 border border-danger/50 text-danger hover:bg-danger/30' : 'bg-surface/50 border border-border text-primary hover:bg-surface'} ${isConnecting ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
-            <Send className="w-4 h-4" />
+            {isConnecting ? (
+              <Loader2 className="w-6 h-6 animate-spin" />
+            ) : isConnected ? (
+              <MicOff className="w-6 h-6" />
+            ) : (
+              <Mic className="w-6 h-6" />
+            )}
           </button>
-        </form>
+          
+          {micError && (
+            <p className="font-data text-xs mt-4 uppercase tracking-widest text-danger max-w-[200px] text-center bg-surface/80 p-2 rounded backdrop-blur-md">
+              {micError}
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );

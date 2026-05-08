@@ -53,7 +53,7 @@ export function MonteCarloChart({ simulationData, isLoading }: MonteCarloChartPr
   }
 
   return (
-    <div className="bg-white/5 backdrop-blur-2xl border border-white/10 p-6 flex flex-col font-ui relative shadow-2xl rounded-2xl">
+    <div className="flex flex-col font-ui relative">
       <div className="flex justify-between items-start mb-6">
         <div>
           <h2 className="text-xl font-bold text-white leading-tight flex items-center gap-2">
@@ -87,7 +87,7 @@ export function MonteCarloChart({ simulationData, isLoading }: MonteCarloChartPr
 
         {simulationData && (
           <div className="absolute inset-0 z-0">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+            <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
             <AreaChart data={data} margin={{ top: 10, right: 0, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="colorHighLow" x1="0" y1="0" x2="0" y2="1">

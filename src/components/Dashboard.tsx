@@ -104,7 +104,7 @@ export function Dashboard({ onBack }: { onBack: () => void }) {
   return (
     <div className="min-h-screen flex flex-col font-ui text-text-main pb-24 md:pb-8 relative">
       <WarpGrid hideBacklight={true} />
-      <header className="bg-surface/80 backdrop-blur-xl border-b border-border sticky top-0 z-50">
+      <header className="bg-transparent border-b border-white/5 sticky top-0 z-50">
         <div className="flex justify-between items-center px-6 h-16 w-full max-w-7xl mx-auto">
           <div className="flex items-center gap-2 cursor-pointer active:opacity-80" onClick={onBack}>
             <Terminal className="text-primary w-6 h-6" />
@@ -186,7 +186,7 @@ export function Dashboard({ onBack }: { onBack: () => void }) {
         {activeTab === 'simulator' && (
           <>
             <aside className="md:col-span-4 flex flex-col gap-4 mb-8 md:mb-0">
-          <div className="bg-white/5 backdrop-blur-2xl border border-white/10 p-6 flex flex-col gap-6 relative shadow-2xl rounded-2xl">
+          <div className="bg-surface/90 backdrop-blur-3xl border border-white/20 p-6 flex flex-col gap-6 relative shadow-[0_8px_32px_rgba(0,0,0,0.5)] rounded-2xl">
             <h2 className="text-xl font-bold text-white shadow-sm">Simulation Parameters</h2>
             
             <div className="flex flex-col gap-2">
@@ -336,7 +336,7 @@ export function Dashboard({ onBack }: { onBack: () => void }) {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="p-6 border-l-4 border-primary bg-white/5 backdrop-blur-2xl font-ui text-text-main shadow-2xl flex flex-col gap-4 rounded-2xl rounded-l-none border-t border-r border-b border-white/10"
+            className="p-6 border-l-4 border-primary bg-surface/90 backdrop-blur-3xl font-ui text-text-main shadow-[0_8px_32px_rgba(0,0,0,0.5)] flex flex-col gap-4 rounded-2xl rounded-l-none border-t border-r border-b border-white/20"
           >
              <div>
                <h3 className="font-bold text-lg mb-1 flex items-center gap-2"><AlertTriangle className="w-5 h-5 text-warn" /> CRITICAL TAKEAWAY</h3>
