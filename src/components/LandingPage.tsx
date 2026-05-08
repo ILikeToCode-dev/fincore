@@ -27,17 +27,17 @@ export function LandingPage({ onStart }: LandingPageProps) {
       <WarpGrid />
 
       {/* Aurora Video Background */}
-      <div className="absolute inset-x-0 bottom-0 top-auto h-[100vh] w-full pointer-events-none z-0 overflow-hidden">
+      <div className="absolute inset-x-0 bottom-0 top-auto h-full w-full pointer-events-none z-0 overflow-hidden">
         <video 
           autoPlay 
           loop 
           muted 
           playsInline 
-          className="absolute bottom-0 left-0 w-full h-full object-cover opacity-70 mix-blend-screen"
+          className="absolute bottom-0 left-0 w-full h-full object-cover opacity-60 mix-blend-screen"
           style={{ 
             objectPosition: 'center bottom', 
-            maskImage: 'linear-gradient(to bottom, transparent 0%, transparent 40%, black 80%, black 100%)', 
-            WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, transparent 40%, black 80%, black 100%)' 
+            maskImage: 'linear-gradient(to top, black 0%, transparent 100%)', 
+            WebkitMaskImage: 'linear-gradient(to top, black 0%, transparent 100%)' 
           }}
         >
           <source src="/aura.mp4" type="video/mp4" />

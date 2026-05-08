@@ -13,8 +13,8 @@ export function PricesTab() {
       const res = await fetch("/api/prices");
       const data = await res.json();
       
-      const goldPrice = data.gold?.price_gram_24k ? data.gold.price_gram_24k * 10 : null; // Custom 10g logic
-      const silverPrice = data.silver?.price_gram_24k ? data.silver.price_gram_24k * 1000 : null; // 1kg
+      const goldPrice = data.metals?.gram_in_inr ? data.metals.gram_in_inr * 10 : null; // Custom 10g logic
+      const silverPrice = data.metals?.silver_gram_in_inr ? data.metals.silver_gram_in_inr * 1000 : null; // 1kg
       const petrolPrice = data.petrol?.fuel_price?.[0]?.petrol?.retailPrice ? parseFloat(data.petrol.fuel_price[0].petrol.retailPrice) : null;
       
       setLivePrices({

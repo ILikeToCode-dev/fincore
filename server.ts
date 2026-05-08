@@ -12,25 +12,20 @@ async function startServer() {
 
   app.get("/api/prices", async (req, res) => {
     try {
-      const [goldRes, silverRes, petrolRes] = await Promise.all([
-        fetch("https://www.goldapi.io/api/XAU/INR", {
-          headers: { "x-access-token": "goldapi-b33ccf45d6e957f04e9b128929f6b2fc-io" }
-        }),
-        fetch("https://www.goldapi.io/api/XAG/INR", {
-          headers: { "x-access-token": "goldapi-b33ccf45d6e957f04e9b128929f6b2fc-io" }
+      const [metalRes, petrolRes] = await Promise.all([
+        fetch("https://goldpricez.com/api/rates/currency/inr/measure/gram/metal/all", {
+          headers: { "X-API-KEY": "5ccc62bfcb748bbaa031d3bf3345b4e75ccc62bf" }
         }),
         fetch("https://fuel.indianapi.in/live_fuel_price?city=delhi", {
           headers: { "x-api-key": "QUxMIFlPVVIgQkFTRSBBUkUgQkVMT05HIFRPIFVT" }
         })
       ]);
 
-      const goldData = await goldRes.json().catch(() => null);
-      const silverData = await silverRes.json().catch(() => null);
+      const metalData = await metalRes.json().catch(() => null);
       const petrolData = await petrolRes.json().catch(() => null);
 
       res.json({
-        gold: goldData,
-        silver: silverData,
+        metals: metalData,
         petrol: petrolData
       });
     } catch (error: any) {
