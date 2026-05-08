@@ -10,6 +10,7 @@ import { WarpGrid } from "./WarpGrid";
 import { ASSET_TYPES } from "../lib/constants";
 import { PricesTab } from "./PricesTab";
 import { ChatTab } from "./ChatTab";
+import { Logo } from "./Logo";
 
 function generateRealValueSimulation(initialSavings: number, years: number, meanRate: number, sdRate: number) {
   const numIterations = 1000;
@@ -106,8 +107,8 @@ export function Dashboard({ onBack }: { onBack: () => void }) {
       <WarpGrid hideBacklight={true} />
       <header className="bg-transparent border-b border-white/5 sticky top-0 z-50">
         <div className="flex justify-between items-center px-6 h-16 w-full max-w-7xl mx-auto">
-          <div className="flex items-center gap-2 cursor-pointer active:opacity-80" onClick={onBack}>
-            <Terminal className="text-primary w-6 h-6" />
+          <div className="flex items-center gap-3 cursor-pointer active:opacity-80" onClick={onBack}>
+            <Logo className="w-8 h-8" useSvg={false} />
             <span className="font-ui text-xl text-primary uppercase font-bold tracking-tighter">Fin_Core</span>
           </div>
           

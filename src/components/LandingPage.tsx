@@ -2,6 +2,7 @@ import { motion, useMotionTemplate, useMotionValue } from "motion/react";
 import { ArrowRight, Terminal } from "lucide-react";
 import { useEffect } from "react";
 import { WarpGrid } from "./WarpGrid";
+import { Logo } from "./Logo";
 
 interface LandingPageProps {
   onStart: () => void;
@@ -48,7 +49,7 @@ export function LandingPage({ onStart }: LandingPageProps) {
       {/* Header element to mimic the screenshot's 'Stitch' header */}
       <div className="absolute top-0 left-0 w-full p-6 flex justify-between items-center z-20">
         <div className="flex items-center gap-2 font-data">
-          <Terminal className="w-5 h-5 text-purple-400" />
+          <Logo className="w-6 h-6 text-purple-400" />
           <span className="font-bold text-lg tracking-tight">Fin_Core</span>
           <span className="px-2 py-[2px] rounded-full border border-white/20 text-[10px] uppercase tracking-widest text-white/70">Terminal</span>
         </div>
